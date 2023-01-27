@@ -7,6 +7,7 @@ import {
   Scripts,
   ScrollRestoration,
 } from "@remix-run/react";
+import clsx from "clsx";
 import styles from "./styles.css";
 
 export const meta: MetaFunction = () => ({
@@ -18,6 +19,11 @@ export const meta: MetaFunction = () => ({
 export const links: LinksFunction = () => {
   return [
     { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+    { rel: "preconnect", href: "https://fonts.bunny.net" },
+    {
+      rel: "stylesheet",
+      href: "https://fonts.bunny.net/css?family=jetbrains-mono:200,400,700",
+    },
     { rel: "stylesheet", href: styles },
   ];
 };
@@ -29,7 +35,14 @@ export default function App() {
         <Meta />
         <Links />
       </head>
-      <body>
+      <body
+        className={clsx(
+          "w-screen h-screen m-0 p-0 overflow-hidden",
+          "bg-black",
+          "font-mono",
+          "flex flex-col items-center"
+        )}
+      >
         <Outlet />
         <ScrollRestoration />
         <Scripts />

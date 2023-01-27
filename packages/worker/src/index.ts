@@ -13,10 +13,6 @@ export type Region =
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const colo = request.cf?.colo;
-    if (!colo)
-      return new Response("Could not find colo metadata", { status: 418 });
-
     const url = new URL(request.url);
     const region = url.hostname.split(".")[0] as Region;
     const id = env.nodes.idFromName(`dev:${region}`);
