@@ -1,0 +1,17 @@
+.DS_Store
+node_modules
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.dev.vars
+.env
+
+packages/web/.cache
+packages/web/functions/\[\[path\]\].js
+packages/web/functions/\[\[path\]\].js.map
+packages/web/public/build
+
