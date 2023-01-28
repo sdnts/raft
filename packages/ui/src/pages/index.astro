@@ -1,6 +1,7 @@
 ---
 import clsx from "clsx";
 import { Question } from "phosphor-react";
+import { ClusterId } from "../components/ClusterId";
 import { Icon } from "../components/Icon";
 import { NodeControls } from "../components/NodeControls";
 import WorldMap from "../components/WorldMap.astro";
@@ -51,7 +52,7 @@ import WorldMap from "../components/WorldMap.astro";
       </Icon>
     </header>
 
-    <main class="flex flex-1 items-center justify-center">
+    <main class="flex flex-col flex-1 justify-center mx-8">
       <section class="relative">
         <WorldMap />
 
@@ -67,6 +68,8 @@ import WorldMap from "../components/WorldMap.astro";
         <!-- <NodeControls client:load id="af1" position={{ top: 83.3, left: 51 }} /> -->
         <!-- <NodeControls client:load id="oc1" position={{ top: 85, left: 92 }} /> -->
       </section>
+
+      <ClusterId client:load />
     </main>
   </body>
 </html>

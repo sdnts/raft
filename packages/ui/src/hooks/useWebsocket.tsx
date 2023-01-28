@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 type WebSocketHandlers = {
   onOpen?: (e: Event) => void;
-  onMessage?: (e: Event) => void;
+  onMessage?: (e: MessageEvent) => void;
 };
 
 export function useWebSocket(url: string, handlers?: WebSocketHandlers) {
