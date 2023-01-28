@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { CrownSimple } from "phosphor-react";
-import { useNode } from "~/hooks/useNode";
+import { NodeState, useNode } from "~/hooks/useNode";
 
 type Props = {
   id: string;
@@ -26,6 +26,16 @@ export const NodeControls = ({ id, position: { top, left } }: Props) => {
         }
       }}
     >
+      <Indicator state={state} />
+      <Controls />
+    </button>
+  );
+};
+
+type IndicatorProps = { state: NodeState };
+const Indicator = ({ state }: IndicatorProps) => {
+  return (
+    <>
       <div
         className={clsx(
           "absolute top-0 left-0",
@@ -58,6 +68,11 @@ export const NodeControls = ({ id, position: { top, left } }: Props) => {
           }
         )}
       />
-    </button>
+    </>
   );
+};
+
+type ControlsProps = {};
+const Controls = ({}: ControlsProps) => {
+  return null;
 };

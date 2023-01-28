@@ -35,16 +35,16 @@ export default function Index() {
           <WorldMap className="w-full h-auto opacity-10" />
 
           <NodeControls id="us1" position={{ top: 31, left: 8 }} />
-          <NodeControls id="us2" position={{ top: 30, left: 22 }} />
-          <NodeControls id="eu1" position={{ top: 20, left: 45 }} />
-          <NodeControls id="eu2" position={{ top: 22, left: 48 }} />
+          {/* <NodeControls id="us2" position={{ top: 30, left: 22 }} /> */}
+          {/* <NodeControls id="eu1" position={{ top: 20, left: 45 }} /> */}
+          {/* <NodeControls id="eu2" position={{ top: 22, left: 48 }} />
           <NodeControls id="eu3" position={{ top: 29, left: 43 }} />
           <NodeControls id="ap1" position={{ top: 58, left: 80 }} />
           <NodeControls id="ap2" position={{ top: 32, left: 88.3 }} />
           <NodeControls id="ap3" position={{ top: 37, left: 70 }} />
           <NodeControls id="sa1" position={{ top: 76, left: 31 }} />
           <NodeControls id="af1" position={{ top: 83.3, left: 51 }} />
-          <NodeControls id="oc1" position={{ top: 85, left: 92 }} />
+          <NodeControls id="oc1" position={{ top: 85, left: 92 }} /> */}
         </section>
       </main>
     </>

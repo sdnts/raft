@@ -2674,6 +2674,7 @@ __metadata:
   dependencies:
     "@cloudflare/workers-types": 4.20230115.0
     ts-results: 3.3.0
+    ulid-workers: 2.1.0
     wrangler: 2.8.1
   languageName: unknown
   linkType: soft
@@ -10359,6 +10360,13 @@ __metadata:
     tsc: bin/tsc
     tsserver: bin/tsserver
   checksum: 301459fc3eb3b1a38fe91bf96d98eb55da88a9cb17b4ef80b4d105d620f4d547ba776cc27b44cc2ef58b66eda23fe0a74142feb5e79a6fb99f54fc018a696afa
+  languageName: node
+  linkType: hard
+
+"ulid-workers@npm:2.1.0":
+  version: 2.1.0
+  resolution: "ulid-workers@npm:2.1.0"
+  checksum: a7864a3c94accec8797b68e705c9491fd73076d55ad181d19e88e1b1f25c3e1e6d77174c31204d468c8504f0c0430a78bd41d70c111c972acb380249ac434d3a
   languageName: node
   linkType: hard
 
