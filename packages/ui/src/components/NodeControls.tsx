@@ -1,6 +1,7 @@
+import type { NodeState } from "@raft/common";
 import clsx from "clsx";
 import { CrownSimple } from "phosphor-react";
-import { NodeState, useNode } from "../hooks/useNode";
+import { useNode } from "../hooks/useNode";
 
 type Props = {
   id: string;
@@ -19,11 +20,7 @@ export const NodeControls = ({ id, position: { top, left } }: Props) => {
         left: `${left}%`,
       }}
       onClick={() => {
-        if (state === "offline") {
-          setState("follower");
-        } else {
-          setState("offline");
-        }
+        setState(state === "follower" ? "offline" : "follower");
       }}
     >
       <Indicator state={state} />
@@ -32,7 +29,7 @@ export const NodeControls = ({ id, position: { top, left } }: Props) => {
   );
 };
 
-type IndicatorProps = { state: NodeState };
+type IndicatorProps = { state: NodeState | undefined };
 const Indicator = ({ state }: IndicatorProps) => {
   return (
     <>
@@ -45,6 +42,7 @@ const Indicator = ({ state }: IndicatorProps) => {
             "bg-red-500 border-red-300": state === "offline",
             "bg-green-500 border-green-300": state === "follower",
             "bg-yellow-500 border-yellow-300": state === "leader",
+            "bg-gray-500 border-gray-300": !state,
           }
         )}
       />

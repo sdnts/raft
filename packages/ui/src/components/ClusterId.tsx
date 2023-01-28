@@ -10,7 +10,7 @@ export function ClusterId() {
 
   return (
     <div
-      className={clsx("flex items-center", "mt-8")}
+      className={clsx("flex items-center", "mt-12")}
       onClick={() => {
         if (id) {
           navigator.clipboard

@@ -1,29 +1,44 @@
+import type { ClientMessage, NodeState } from "@raft/common";
+import { pack } from "msgpackr";
 import { useState } from "react";
 import { useCluster } from "./useCluster";
 import { useWebSocket } from "./useWebsocket";
 
-export type NodeState = "leader" | "follower" | "offline";
+const URL = import.meta.env.DEV
+  ? "ws://localhost:8787"
+  : "wss://api.raft.sdnts.dev";
 
 export function useNode(id: string) {
-  let [state, setState] = useState<NodeState>("follower");
+  let [state, setState] = useState<NodeState>();
   let clusterId = useCluster((state) => state.id);
   let setClusterId = useCluster((state) => state.setId);
-  let ws = useWebSocket(`ws://localhost:8787/${id}`, {
-    onOpen(e) {
-      console.log("WS open", e);
-    },
-    onMessage(e) {
-      console.log("WS message", e);
-      if (!clusterId) {
-        setClusterId(e.data);
+  let ws = useWebSocket(`${URL}/${id}`, {
+    onMessage(msg) {
+      console.log("WS message", msg);
+
+      switch (msg.action) {
+        case "Cluster": {
+          setState(msg.state);
+          if (!clusterId) {
+            setClusterId(msg.id);
+          }
+          break;
+        }
+        case "SetState": {
+          break;
+        }
+        default:
+          break;
       }
     },
   });
 
   return {
     state,
-    setState(s: NodeState) {
-      setState(s);
+    setState(state: NodeState) {
+      const msg: ClientMessage = { action: "SetState", state };
+      ws.current?.send(pack(msg));
+      setState(state);
     },
   };
 }

@@ -1,17 +1,20 @@
+import { ClientMessage, NodeState } from "@raft/common";
+import { pack, unpack } from "msgpackr";
 import { Env, isDev, NodeId } from ".";
 import { signCookie } from "./cookie";
 
 type Metadata = {
-  state: "leader" | "follower" | "candidate" | "offline";
   term: number;
 };
 
 export class Node implements DurableObject {
   #env: Env;
+  #ctx: ExecutionContext;
   #storage: DurableObjectStorage;
 
-  constructor(state: DurableObjectState, env: Env) {
+  constructor(state: DurableObjectState, env: Env, ctx: ExecutionContext) {
     this.#env = env;
+    this.#ctx = ctx;
     this.#storage = state.storage;
   }
 
@@ -22,8 +25,8 @@ export class Node implements DurableObject {
     }
 
     const url = new URL(request.url);
-    const [, clusterId, nodeId] = url.pathname.split("/") as [
-      "",
+    const [_, clusterId, nodeId] = url.pathname.split("/") as [
+      never,
       string,
       NodeId
     ];
@@ -42,29 +45,37 @@ export class Node implements DurableObject {
       return this.node(authorization);
     }
 
-    return this.client(clusterId);
+    return this.client(clusterId, nodeId);
   }
 
   /**
    * Starts a WebSocket connection with an unauthenticated client, which is usually
    * the UI
    */
-  async client(clusterId: string): Promise<Response> {
+  async client(clusterId: string, nodeId: string): Promise<Response> {
     const { 0: clientWs, 1: serverWs } = new WebSocketPair();
 
     const abortController = new AbortController();
-    serverWs.addEventListener(
-      "open",
-      (e) => {
-        console.log("Opened");
-      },
-      { signal: abortController.signal }
-    );
 
     serverWs.addEventListener(
       "message",
       (event) => {
-        console.log("Message", event.data);
+        const msg: ClientMessage = unpack(
+          new Uint8Array(event.data as ArrayBuffer)
+        );
+        console.log("Incoming", msg);
+
+        switch (msg.action) {
+          case "Cluster": {
+            break;
+          }
+          case "SetState": {
+            this.#storage.put<NodeState>(`${clusterId}:_meta:state`, msg.state);
+            break;
+          }
+          default:
+            break;
+        }
       },
       { signal: abortController.signal }
     );
@@ -75,7 +86,16 @@ export class Node implements DurableObject {
     });
 
     serverWs.accept();
-    serverWs.send(clusterId!);
+
+    // Send a Welcome message, but don't block
+    this.#storage.get<NodeState>(`${clusterId}:_meta:state`).then((state) => {
+      const msg: ClientMessage = {
+        action: "Cluster",
+        id: clusterId,
+        state: state ?? "follower",
+      };
+      serverWs.send(pack(msg));
+    });
 
     return new Response(null, {
       status: 101,
@@ -86,7 +106,10 @@ export class Node implements DurableObject {
           isDev(this.#env) ? "Domain=localhost" : `Domain=raft.sdnts.dev`,
           `Path=/`,
           "HttpOnly",
-        ].join("; "),
+          isDev(this.#env) ? "Secure" : undefined,
+        ]
+          .filter((v) => !!v)
+          .join("; "),
       },
     });
   }

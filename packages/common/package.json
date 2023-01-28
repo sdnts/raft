@@ -1,0 +1,8 @@
+{
+  "name": "@raft/common",
+  "private": true,
+  "types": "rpc.d.ts",
+  "dependencies": {
+    "typescript": "4.9.4"
+  }
+}

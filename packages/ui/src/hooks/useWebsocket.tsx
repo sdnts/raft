@@ -1,14 +1,18 @@
-import { useEffect } from "react";
+import type { ClientMessage } from "@raft/common";
+import { unpack } from "msgpackr";
+import { useEffect, useRef } from "react";
 
 type WebSocketHandlers = {
   onOpen?: (e: Event) => void;
-  onMessage?: (e: MessageEvent) => void;
+  onMessage?: (message: ClientMessage) => void;
 };
 
 export function useWebSocket(url: string, handlers?: WebSocketHandlers) {
+  const websocket = useRef<WebSocket>();
   useEffect(() => {
     const abortController = new AbortController();
     const ws = new WebSocket(url);
+    websocket.current = ws;
 
     ws.addEventListener(
       "open",
@@ -20,8 +24,10 @@ export function useWebSocket(url: string, handlers?: WebSocketHandlers) {
 
     ws.addEventListener(
       "message",
-      (e) => {
-        handlers?.onMessage?.(e);
+      async (e: MessageEvent<Blob>) => {
+        const data = await e.data.arrayBuffer();
+        const msg: ClientMessage = unpack(new Uint8Array(data));
+        handlers?.onMessage?.(msg);
       },
       { signal: abortController.signal }
     );
@@ -31,5 +37,5 @@ export function useWebSocket(url: string, handlers?: WebSocketHandlers) {
     };
   }, []);
 
-  return {};
+  return websocket;
 }
