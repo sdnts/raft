@@ -4,7 +4,7 @@
     "packages/*"
   ],
   "scripts": {
-    "web": "yarn workspace @raft/web",
+    "ui": "yarn workspace @raft/ui",
     "worker": "yarn workspace @raft/worker",
     "typecheck": "yarn workspaces foreach run typecheck"
   }

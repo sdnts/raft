@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { CrownSimple } from "phosphor-react";
-import { NodeState, useNode } from "~/hooks/useNode";
+import { NodeState, useNode } from "../hooks/useNode";
 
 type Props = {
   id: string;

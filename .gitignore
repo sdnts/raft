@@ -10,8 +10,6 @@ node_modules
 .dev.vars
 .env
 
-packages/web/.cache
-packages/web/functions/\[\[path\]\].js
-packages/web/functions/\[\[path\]\].js.map
-packages/web/public/build
+packages/ui/.astro
+packages/ui/dist
 
