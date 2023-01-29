@@ -12,6 +12,10 @@ type Metadata = {
   term: number;
 };
 
+// Maximum allowed time of inactivity (in ms), after which the DO is automatically
+// shut down to save costs
+const INACTIVITY_TIMEOUT = 5000;
+
 /**
  * A Node is a single DO in a Cluster.
  * Multiple new instances of this DO are created for every cluster that the UI sees,
@@ -67,6 +71,16 @@ export class Node implements DurableObject {
     return this.newClient(clusterId, nodeId);
   }
 
+  alarm(): void {
+    try {
+      console.log("Killing");
+      this.clients.forEach((ws) => ws.close(1001, "Inactivity"));
+      this.nodes.forEach((ws) => ws.close(1001, "Inactivity"));
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   /**
    * Starts a WebSocket connection with an unauthenticated client, which is usually
    * the UI
@@ -78,20 +92,24 @@ export class Node implements DurableObject {
 
     serverWs.addEventListener(
       "message",
-      (event) => {
+      async (event) => {
         const msg = deserialize<ClientMessage>(
           new Uint8Array(event.data as ArrayBuffer)
         );
+        if (msg.err) {
+          return;
+        }
 
-        if (msg.clusterId !== clusterId || msg.nodeId !== nodeId) {
+        if (msg.val.clusterId !== clusterId || msg.val.nodeId !== nodeId) {
           return;
         }
 
         console.log("Incoming", msg);
+        await this.storage.setAlarm(Date.now() + INACTIVITY_TIMEOUT);
 
-        switch (msg.action) {
+        switch (msg.val.action) {
           case "SetState": {
-            this.storage.put<NodeState>(`_meta:state`, msg.state);
+            void this.storage.put<NodeState>(`_meta:state`, msg.val.state);
             this.clients.forEach((ws) => {
               if (ws !== serverWs) {
                 ws.send(
@@ -99,7 +117,7 @@ export class Node implements DurableObject {
                     action: "SetState",
                     clusterId,
                     nodeId,
-                    state: msg.state,
+                    state: msg.val.state,
                   })
                 );
               }
@@ -118,8 +136,15 @@ export class Node implements DurableObject {
       abortController.abort();
     });
 
+    serverWs.addEventListener("close", (e) => {
+      console.error("Close", e);
+      this.clients = this.clients.filter((ws) => ws !== serverWs);
+      abortController.abort();
+    });
+
     serverWs.accept();
     this.clients.push(serverWs);
+    await this.storage.setAlarm(Date.now() + INACTIVITY_TIMEOUT);
 
     // Send a Welcome message, but don't block on it
     this.storage.get<NodeState>(`_meta:state`).then((state) => {

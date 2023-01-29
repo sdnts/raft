@@ -1,4 +1,5 @@
 import { pack, unpack } from "msgpackr";
+import { Err, Ok, Result } from "ts-results-es";
 
 export const NodeIds = [
   "us1", // San Jose
@@ -33,6 +34,10 @@ export function serialize<T extends ClientMessage | NodeMessage>(
 
 export function deserialize<T extends ClientMessage | NodeMessage>(
   msg: ArrayBuffer
-): T {
-  return unpack(msg);
+): Result<T, Error> {
+  try {
+    return Ok(unpack(new Uint8Array(msg)));
+  } catch (e) {
+    return Err(e as Error);
+  }
 }

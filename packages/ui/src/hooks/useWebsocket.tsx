@@ -1,10 +1,10 @@
-import type { ClientMessage } from "@raft/common";
-import { unpack } from "msgpackr";
+import { ClientMessage, deserialize } from "@raft/common";
 import { useEffect, useRef } from "react";
 
 type WebSocketHandlers = {
   onOpen?: (e: Event) => void;
   onMessage?: (message: ClientMessage) => void;
+  onClose?: (e: Event) => void;
 };
 
 export function useWebSocket(url: string, handlers?: WebSocketHandlers) {
@@ -18,6 +18,9 @@ export function useWebSocket(url: string, handlers?: WebSocketHandlers) {
       "open",
       (e) => {
         handlers?.onOpen?.(e);
+        setInterval(() => {
+          ws.send("");
+        }, 1000);
       },
       { signal: abortController.signal }
     );
@@ -26,8 +29,19 @@ export function useWebSocket(url: string, handlers?: WebSocketHandlers) {
       "message",
       async (e: MessageEvent<Blob>) => {
         const data = await e.data.arrayBuffer();
-        const msg: ClientMessage = unpack(new Uint8Array(data));
-        handlers?.onMessage?.(msg);
+        const msg = deserialize<ClientMessage>(data);
+        if (msg.err) {
+          return;
+        }
+        handlers?.onMessage?.(msg.val);
+      },
+      { signal: abortController.signal }
+    );
+
+    ws.addEventListener(
+      "close",
+      (e) => {
+        handlers?.onClose?.(e);
       },
       { signal: abortController.signal }
     );

@@ -34,6 +34,10 @@ export function useNode(id: NodeId) {
           break;
       }
     },
+    onClose(e) {
+      console.log("Connection closed", e);
+      setState(undefined);
+    },
   });
 
   return {

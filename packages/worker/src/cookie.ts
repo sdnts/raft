@@ -1,4 +1,4 @@
-import { Err, Ok, Result } from "ts-results";
+import { Err, Ok, Result } from "ts-results-es";
 import { Env, isDev } from ".";
 
 const COOKIE_NAME = "cluster";
