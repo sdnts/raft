@@ -5,8 +5,8 @@
   ],
   "scripts": {
     "common": "yarn workspace @raft/common",
+    "api": "yarn workspace @raft/api",
     "ui": "yarn workspace @raft/ui",
-    "worker": "yarn workspace @raft/worker",
     "typecheck": "yarn workspaces foreach run typecheck"
   }
 }

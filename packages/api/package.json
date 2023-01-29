@@ -1,5 +1,5 @@
 {
-  "name": "@raft/worker",
+  "name": "@raft/api",
   "private": true,
   "scripts": {
     "dev": "wrangler dev",
