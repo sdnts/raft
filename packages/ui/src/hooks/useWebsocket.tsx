@@ -18,9 +18,6 @@ export function useWebSocket(url: string, handlers?: WebSocketHandlers) {
       "open",
       (e) => {
         handlers?.onOpen?.(e);
-        setInterval(() => {
-          ws.send("");
-        }, 1000);
       },
       { signal: abortController.signal }
     );

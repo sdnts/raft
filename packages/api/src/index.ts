@@ -1,6 +1,7 @@
 import { NodeId, NodeIds } from "@raft/common";
 import { ulidFactory } from "ulid-workers";
 import { verifyCookie } from "./cookie";
+import { getStub } from "./node";
 
 export interface Env {
   nodes: DurableObjectNamespace;
@@ -15,6 +16,14 @@ const ulid = ulidFactory();
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const upgrade = request.headers.get("Upgrade");
+    if (!upgrade || upgrade !== "websocket") {
+      return new Response(
+        "Bad Request: Only WebSocket upgrade requests are allowed",
+        { status: 426 }
+      );
+    }
+
     const url = new URL(request.url);
     const nodeId = url.pathname.split("/")[1] as NodeId;
 
@@ -37,26 +46,14 @@ export default {
       clusterId = ulid();
     }
 
-    const doId = env.nodes.idFromName(`dev:${clusterId}:${nodeId}`);
-    const doStub = env.nodes.get(doId);
-    return doStub.fetch(
-      `http://raft.node/${clusterId}/${nodeId}`,
-      request as any
-    );
-  },
-
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(
-      new Promise<void>((r) => {
-        console.log("ScheduledEvent");
-        r();
-      })
-    );
+    return getStub(env, clusterId, nodeId).fetch("http://raft.node", {
+      headers: {
+        upgrade: upgrade,
+        "x-cluster-id": clusterId,
+        "x-node-id": nodeId,
+      },
+    });
   },
 };
 
 export { Node } from "./node";
-
-export function isDev(env: Pick<Env, "DEVELOPMENT">): boolean {
-  return Boolean(env.DEVELOPMENT);
-}

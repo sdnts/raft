@@ -1,15 +1,15 @@
-import type { NodeState } from "@raft/common";
+import type { NodeId, NodeStatus } from "@raft/common";
 import clsx from "clsx";
 import { CrownSimple } from "phosphor-react";
 import { useNode } from "../hooks/useNode";
 
 type Props = {
-  id: string;
+  id: NodeId;
   position: { top: number; left: number };
 };
 
 export const NodeControls = ({ id, position: { top, left } }: Props) => {
-  const { state, setState } = useNode(id);
+  const { status, setStatus } = useNode(id);
 
   return (
     <button
@@ -20,17 +20,17 @@ export const NodeControls = ({ id, position: { top, left } }: Props) => {
         left: `${left}%`,
       }}
       onClick={() => {
-        setState(state === "follower" ? "offline" : "follower");
+        setStatus(status === "offline" ? "follower" : "offline");
       }}
     >
-      <Indicator state={state} />
+      <Indicator status={status} />
       <Controls />
     </button>
   );
 };
 
-type IndicatorProps = { state: NodeState | undefined };
-const Indicator = ({ state }: IndicatorProps) => {
+type IndicatorProps = { status: NodeStatus | undefined };
+const Indicator = ({ status }: IndicatorProps) => {
   return (
     <>
       <div
@@ -39,14 +39,15 @@ const Indicator = ({ state }: IndicatorProps) => {
           "w-4 h-4 -translate-x-2 -translate-y-2",
           "rounded-full shadow-sm border",
           {
-            "bg-red-500 border-red-300": state === "offline",
-            "bg-green-500 border-green-300": state === "follower",
-            "bg-yellow-500 border-yellow-300": state === "leader",
-            "bg-gray-500 border-gray-300": !state,
+            "bg-red-500 border-red-300": status === "offline",
+            "bg-green-500 border-green-300":
+              status === "follower" || status === "candidate",
+            "bg-yellow-500 border-yellow-300": status === "leader",
+            "bg-gray-500 border-gray-300": !status,
           }
         )}
       />
-      {state === "leader" && (
+      {status === "leader" && (
         <CrownSimple
           width={12}
           height={12}
@@ -60,9 +61,9 @@ const Indicator = ({ state }: IndicatorProps) => {
           "w-7 h-7 -translate-x-3.5 -translate-y-3.5",
           "rounded-full opacity-20",
           {
-            "bg-red-500": state === "offline",
-            "bg-green-500": state === "follower",
-            "bg-yellow-500": state === "leader",
+            "bg-red-500": status === "offline",
+            "bg-green-500": status === "follower",
+            "bg-yellow-500": status === "leader",
           }
         )}
       />

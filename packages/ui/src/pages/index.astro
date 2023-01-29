@@ -58,6 +58,8 @@ import WorldMap from "../components/WorldMap.astro";
       <section class="relative">
         <WorldMap />
 
+        <!-- Make sure all nodes rendered here are enabled on the API -->
+
         <NodeControls client:load id="us1" position={{ top: 31, left: 8 }} />
         <!-- <NodeControls client:load id="us2" position={{ top: 30, left: 22 }} /> -->
         <NodeControls client:load id="eu1" position={{ top: 20, left: 45 }} />

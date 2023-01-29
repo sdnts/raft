@@ -2,9 +2,6 @@ name = "raft"
 main = "src/index.ts"
 compatibility_date = "2023-01-27"
 
-[triggers]
-crons = ["0 0 * * *"]
-
 [durable_objects]
 bindings = [{ name = "nodes", class_name = "Node" }]
 

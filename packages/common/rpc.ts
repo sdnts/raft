@@ -16,15 +16,24 @@ export const NodeIds = [
 ] as const;
 export type NodeId = (typeof NodeIds)[number];
 
-export type NodeState = "leader" | "follower" | "candidate" | "offline";
+export type NodeStatus = "leader" | "follower" | "candidate" | "offline";
 
 // Messages exchanged between a Client and a Node
 export type ClientMessage =
-  | { action: "Welcome"; clusterId: string; nodeId: NodeId; state: NodeState }
-  | { action: "SetState"; clusterId: string; nodeId: NodeId; state: NodeState };
+  | { action: "Welcome"; clusterId: string; nodeId: NodeId; status: NodeStatus }
+  | {
+      action: "SetState";
+      clusterId: string;
+      nodeId: NodeId;
+      status: NodeStatus;
+    };
 
 // Messages exchanged between Nodes
-export type NodeMessage = { action: "Heartbeat" } | { action: "RequestVote" };
+export type NodeMessage =
+  | { action: "AppendEntries"; term: number; leader: NodeId }
+  | { action: "Appended"; term: number }
+  | { action: "RequestVote"; term: number; candidateId: NodeId }
+  | { action: "Vote"; term: number; granted: boolean };
 
 export function serialize<T extends ClientMessage | NodeMessage>(
   msg: T
