@@ -1425,10 +1425,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@raft/common@workspace:packages/common":
+"@raft/common@workspace:^, @raft/common@workspace:packages/common":
   version: 0.0.0-use.local
   resolution: "@raft/common@workspace:packages/common"
   dependencies:
+    msgpackr: 1.8.2
     typescript: 4.9.4
   languageName: unknown
   linkType: soft
@@ -1444,11 +1445,11 @@ __metadata:
     "@radix-ui/react-hover-card": 1.0.3
     "@radix-ui/react-popover": 1.0.3
     "@radix-ui/react-toggle": 1.0.1
+    "@raft/common": "workspace:^"
     "@types/react": 18.0.21
     "@types/react-dom": 18.0.6
     astro: 2.0.0
     clsx: 1.2.1
-    msgpackr: 1.8.2
     phosphor-react: 1.4.1
     react: 18.0.0
     react-dom: 18.0.0
@@ -1462,7 +1463,7 @@ __metadata:
   resolution: "@raft/worker@workspace:packages/worker"
   dependencies:
     "@cloudflare/workers-types": 4.20230115.0
-    msgpackr: 1.8.2
+    "@raft/common": "workspace:^"
     ts-results: 3.3.0
     typescript: 4.9.4
     ulid-workers: 2.1.0

@@ -1,5 +1,4 @@
-import type { ClientMessage, NodeState } from "@raft/common";
-import { pack } from "msgpackr";
+import { ClientMessage, NodeId, NodeState, serialize } from "@raft/common";
 import { useState } from "react";
 import { useCluster } from "./useCluster";
 import { useWebSocket } from "./useWebsocket";
@@ -8,23 +7,27 @@ const URL = import.meta.env.DEV
   ? "ws://localhost:8787"
   : "wss://api.raft.sdnts.dev";
 
-export function useNode(id: string) {
+export function useNode(id: NodeId) {
   let [state, setState] = useState<NodeState>();
   let clusterId = useCluster((state) => state.id);
   let setClusterId = useCluster((state) => state.setId);
   let ws = useWebSocket(`${URL}/${id}`, {
     onMessage(msg) {
-      console.log("WS message", msg);
+      if (msg.nodeId !== id) {
+        return;
+      }
 
+      console.log("Incoming", msg);
       switch (msg.action) {
-        case "Cluster": {
+        case "Welcome": {
           setState(msg.state);
           if (!clusterId) {
-            setClusterId(msg.id);
+            setClusterId(msg.clusterId);
           }
           break;
         }
         case "SetState": {
+          setState(msg.state);
           break;
         }
         default:
@@ -36,8 +39,18 @@ export function useNode(id: string) {
   return {
     state,
     setState(state: NodeState) {
-      const msg: ClientMessage = { action: "SetState", state };
-      ws.current?.send(pack(msg));
+      if (!clusterId) {
+        return;
+      }
+
+      ws.current?.send(
+        serialize<ClientMessage>({
+          action: "SetState",
+          clusterId,
+          nodeId: id,
+          state,
+        })
+      );
       setState(state);
     },
   };

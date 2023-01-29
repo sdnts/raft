@@ -13,3 +13,4 @@ node_modules
 packages/ui/.astro
 packages/ui/dist
 
+packages/common/dist

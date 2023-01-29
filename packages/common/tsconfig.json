@@ -1,12 +1,12 @@
 {
   "compilerOptions": {
     "outDir": "dist",
+    "declaration": true,
     "target": "es2021",
     "lib": ["es2021"],
     "moduleResolution": "node",
     "types": ["@cloudflare/workers-types"],
     "allowJs": false,
-    "noEmit": false,
     "isolatedModules": true,
     "allowSyntheticDefaultImports": true,
     "strict": true,

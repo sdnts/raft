@@ -1,3 +1,4 @@
+import { NodeId, NodeIds } from "@raft/common";
 import { ulidFactory } from "ulid-workers";
 import { verifyCookie } from "./cookie";
 
@@ -10,27 +11,16 @@ export interface Env {
   nodeSecret: string;
 }
 
-export const NodeIds = [
-  "us1", // San Jose
-  "us2", // Ashburn
-  "eu1", // London
-  // "eu2", // Frankfurt
-  // "eu3", // Madrid
-  // "ap1", // Singapore
-  // "ap2", // Tokyo
-  // "ap3", // New Delhi
-  // "af1", // Cape Town
-  // "sa1", // Sao Paolo
-  // "oc1", // Sydney
-] as const;
-export type NodeId = typeof NodeIds[number];
-
 const ulid = ulidFactory();
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const nodeId = url.pathname.split("/")[1] as NodeId;
+
+    if (!NodeIds.includes(nodeId)) {
+      return new Response("Bad Request: Unrecognized nodeId", { status: 400 });
+    }
 
     let clusterId: string;
 
@@ -47,7 +37,7 @@ export default {
       clusterId = ulid();
     }
 
-    const doId = env.nodes.idFromName(`dev:${nodeId}`);
+    const doId = env.nodes.idFromName(`dev:${clusterId}:${nodeId}`);
     const doStub = env.nodes.get(doId);
     return doStub.fetch(
       `http://raft.node/${clusterId}/${nodeId}`,
