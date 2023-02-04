@@ -3,16 +3,16 @@ import { Err, Ok, Result } from "ts-results-es";
 
 export const NodeIds = [
   "us1", // San Jose
-  // "us2", // Ashburn
+  "us2", // Ashburn
   "eu1", // London
-  // "eu2", // Frankfurt
-  // "eu3", // Madrid
+  "eu2", // Frankfurt
+  "eu3", // Madrid
   "ap1", // Singapore
-  // "ap2", // Tokyo
-  // "ap3", // New Delhi
-  // "af1", // Cape Town
-  // "sa1", // Sao Paolo
-  // "oc1", // Sydney
+  "ap2", // Tokyo
+  "ap3", // New Delhi
+  "af1", // Cape Town
+  "sa1", // Sao Paolo
+  "oc1", // Sydney
 ] as const;
 export type NodeId = (typeof NodeIds)[number];
 
@@ -22,7 +22,7 @@ export type NodeStatus = "leader" | "follower" | "candidate" | "offline";
 export type ClientMessage =
   | { action: "Welcome"; clusterId: string; nodeId: NodeId; status: NodeStatus }
   | {
-      action: "SetState";
+      action: "SetStatus";
       clusterId: string;
       nodeId: NodeId;
       status: NodeStatus;

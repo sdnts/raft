@@ -29,7 +29,7 @@ export function useNode(id: NodeId) {
 
           break;
         }
-        case "SetState": {
+        case "SetStatus": {
           console.log(`[${id}]`, "Status", msg.status);
           setStatus(msg.status);
           break;
@@ -53,7 +53,7 @@ export function useNode(id: NodeId) {
 
       ws.current?.send(
         serialize<ClientMessage>({
-          action: "SetState",
+          action: "SetStatus",
           clusterId,
           nodeId: id,
           status: state,

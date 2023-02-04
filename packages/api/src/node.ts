@@ -11,76 +11,37 @@ import { Err, Ok, Result } from "ts-results-es";
 import { Env } from ".";
 import { signCookie } from "./cookie";
 
-export function isDev(env: Pick<Env, "DEVELOPMENT">): boolean {
-  return Boolean(env.DEVELOPMENT);
-}
-
-export function getStub(
-  env: Env,
-  clusterId: string,
-  nodeId: NodeId
-): DurableObjectStub {
-  const doId = env.nodes.idFromName(`node:${clusterId}:${nodeId}`);
-  return env.nodes.get(doId);
-}
-
-// Timeout (in ms) applied to individual RPC requests. If responses don't arrive
-// within this time, the node is considered lost.
-const RPC_TIMEOUT = 1000;
-
-// Returns a random timeout (in ms) to be used as an election timeout
-function randomElectionTimeout(): number {
-  return 500 + Math.floor(Math.random() * 500);
-}
-
-async function setDeadline<T>(
-  promise: Promise<T>,
-  ms: number
-): Promise<Result<T, void>> {
-  const result = await Promise.race([
-    sleep(ms).then(() => Symbol("sleep")),
-    promise,
-  ]);
-
-  if (typeof result === "symbol") {
-    return Err(undefined);
-  }
-
-  return Ok(result);
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 /**
  * A Node is a single DO in a Cluster.
  * Multiple new instances of this DO are created for every cluster that the UI sees,
  * making each Node truly isolated from all other nodes in all other clusters.
- * Every Node also maintains a WebSocket connection with all other Nodes in its
- * cluster that it uses for all gossip traffic.
- * Nodes are capable of shutting themselves down when client traffic stops, which
- * makes clusters cheap to create and run.
+ * Every Node also maintains a WebSocket connection with all UI clients connected
+ * to it, to keep them in sync.
+ * Nodes do not maintain WebSocket connections between themselves though. There's
+ * no reason they can't, I just ... didn't do it.
+ *
+ * Nodes are capable of shutting themselves down when all client traffic stops,
+ * which makes clusters cheap to create and run.
  */
 export class Node implements DurableObject {
-  private clusterSize = NodeIds.length;
-  private clusterId!: string;
-  private nodeId!: NodeId;
+  clusterSize = NodeIds.length;
+  clusterId!: string;
+  nodeId!: NodeId;
 
-  // WebSocket connections to all connected clients
-  private clients: Set<WebSocket> = new Set();
-
-  private status: NodeStatus = "follower";
-
+  status: NodeStatus = "follower";
   // Current election term
-  private term: number = 0;
+  term: number = 0;
   // Who did we vote for in this term?
-  private votedFor?: NodeId;
+  votedFor?: NodeId;
 
   // TimeoutIds returned by `setTimeout` / `setInterval`
-  private electionTimeoutId: number = 0;
+  // Used for both election & heartbeat timeouts.
+  timeoutId: number = -1;
 
-  constructor(private state: DurableObjectState, private env: Env) { }
+  // WebSocket connections to all connected clients
+  clients: Set<WebSocket> = new Set();
+
+  constructor(private state: DurableObjectState, private env: Env) {}
 
   async fetch(request: Request) {
     this.clusterId = this.clusterId ?? request.headers.get("x-cluster-id");
@@ -116,6 +77,7 @@ export class Node implements DurableObject {
           new Uint8Array(event.data as ArrayBuffer)
         );
         if (msg.err) {
+          // Malformed message
           return;
         }
 
@@ -134,34 +96,18 @@ export class Node implements DurableObject {
         );
 
         switch (msg.val.action) {
-          case "SetState": {
-            switch (msg.val.status) {
-              case "offline":
-                clearInterval(this.electionTimeoutId); // Cancel heartbeats (if leader)
-                clearTimeout(this.electionTimeoutId); // Cancel any elections (if candidate)
-                break;
-              case "follower":
-                break;
-              default:
-                // Clients are not allowed to collude in elections
-                return;
+          case "SetStatus": {
+            // Clients are only allowed to do certain kinds of status transitions
+            if (this.status === "offline" && msg.val.status === "follower") {
+            } else if (msg.val.status === "offline") {
+              clearInterval(this.timeoutId);
+              clearTimeout(this.timeoutId);
+            } else {
+              return;
             }
 
-            this.status = msg.val.status;
-
-            // Broadcast status to other clients
-            this.clients.forEach((ws) => {
-              if (ws !== myHalf) {
-                ws.send(
-                  serialize<ClientMessage>({
-                    action: "SetState",
-                    clusterId: this.clusterId,
-                    nodeId: this.nodeId,
-                    status: msg.val.status,
-                  })
-                );
-              }
-            });
+            // Notify all clients of this status change except this one
+            this.setStatus(msg.val.status, [myHalf]);
             break;
           }
         }
@@ -172,12 +118,21 @@ export class Node implements DurableObject {
     myHalf.addEventListener(
       "error",
       (e) => {
-        console.error("Error", e);
-        abortController.abort();
+        console.error(
+          `${new Date().toISOString()}`,
+          `[${this.nodeId}]`,
+          "Client Error",
+          e
+        );
 
-        // Make sure to stop heartbeats so the DO can shut down
+        abortController.abort();
         this.clients.delete(myHalf);
-        clearTimeout(this.electionTimeoutId);
+
+        if (this.clients.size === 0) {
+          // Make sure to stop heartbeats so the DO can shut down
+          clearTimeout(this.timeoutId);
+          clearInterval(this.timeoutId);
+        }
       },
       { signal: abortController.signal }
     );
@@ -185,12 +140,21 @@ export class Node implements DurableObject {
     myHalf.addEventListener(
       "close",
       (e) => {
-        console.error("Close", e);
-        abortController.abort();
+        console.error(
+          `${new Date().toISOString()}`,
+          `[${this.nodeId}]`,
+          "Client Close",
+          e
+        );
 
-        // Make sure to stop heartbeats so the DO can shut down
+        abortController.abort();
         this.clients.delete(myHalf);
-        clearTimeout(this.electionTimeoutId);
+
+        if (this.clients.size === 0) {
+          // Make sure to stop heartbeats so the DO can shut down
+          clearTimeout(this.timeoutId);
+          clearInterval(this.timeoutId);
+        }
       },
       { signal: abortController.signal }
     );
@@ -210,13 +174,14 @@ export class Node implements DurableObject {
 
     // If this is the first client, schedule a leader election
     if (this.clients.size === 1) {
-      this.electionTimeoutId = setTimeout(() => {
+      this.timeoutId = setTimeout(() => {
         console.log(
           `${new Date().toISOString()}`,
           `[${this.nodeId}]`,
           "Waking up cluster"
         );
-        this.startElection();
+
+        void this.election();
       }, randomElectionTimeout());
     }
 
@@ -237,14 +202,18 @@ export class Node implements DurableObject {
     });
   }
 
-  /*
+  /**
    * Handle a message from another Node
+   *
+   * @param body The serialized message
    */
   async gossip(body: ArrayBuffer): Promise<Response> {
     const msg = deserialize<NodeMessage>(body);
     if (msg.err) {
       return new Response(msg.val.message, { status: 400 });
     }
+
+    console.log(`${new Date().toISOString()}`, `[${this.nodeId}] <-`, msg.val);
 
     if (this.status === "offline") {
       console.log(
@@ -255,133 +224,77 @@ export class Node implements DurableObject {
       return new Response(null, { status: 503 });
     }
 
+    // Messages from old terms mean nothing
+    if (msg.val.term < this.term) {
+      return new Response(null, { status: 400 });
+    }
+
+    // Always keep the term up-to-date
+    if (msg.val.term > this.term) {
+      this.term = msg.val.term;
+      this.votedFor = undefined;
+    }
+
     switch (msg.val.action) {
       case "AppendEntries":
-        console.log(
-          `${new Date().toISOString()}`,
-          `[${this.nodeId}] <-`,
-          msg.val
-        );
+        // Clearly the leader is valid, so switch status back to follower, if not
+        // already
+        this.setStatus("follower");
 
-        if (msg.val.term < this.term) {
-          // Some old leader thinks they can just waltz in and steal the show.
-          return new Response(null, { status: 400 });
-        }
-
-        // Acknowledge an existing leader
-        if (this.status === "leader" || this.status === "candidate") {
+        // Schedule an election if the next AppendEntries is late
+        clearInterval(this.timeoutId);
+        clearTimeout(this.timeoutId);
+        this.timeoutId = setTimeout(() => {
           console.log(
             `${new Date().toISOString()}`,
             `[${this.nodeId}]`,
-            "Stepping down",
-            `status = ${this.status}`
+            "AppendEntries is late",
+            `term = ${this.term}`
           );
 
-          // Stop leadership announcements
-          clearInterval(this.electionTimeoutId);
-          this.clients.forEach((client) => {
-            client.send(
-              serialize<ClientMessage>({
-                action: "SetState",
-                clusterId: this.clusterId,
-                nodeId: this.nodeId,
-                status: "follower",
-              })
-            );
-          });
-        }
+          this.election();
+        }, randomElectionTimeout());
 
-        this.status = "follower";
-        this.term = msg.val.term;
-        this.votedFor = undefined;
-
-        // Schedule an election if another AppendEntries does not come in time
-        clearTimeout(this.electionTimeoutId);
-        const electionTimeout = randomElectionTimeout();
-        this.electionTimeoutId = setTimeout(() => {
-          console.log(
-            `${new Date().toISOString()}`,
-            `[${this.nodeId}]`,
-            "AppendEntries is late"
-          );
-          this.startElection();
-        }, electionTimeout);
-
-        const res: NodeMessage = {
+        // Acknowledge AppendEntries
+        const response: NodeMessage = {
           action: "Appended",
           term: this.term,
         };
-        console.log(
-          `${new Date().toISOString()}`,
-          `[${this.nodeId}] -> ${msg.val.leader}`,
-          res,
-          `electionTimeout = ${electionTimeout}`
-        );
-        return new Response(serialize<NodeMessage>(res), { status: 200 });
+        return new Response(serialize(response), {
+          status: 200,
+        });
 
       case "RequestVote":
-        console.log(
-          `${new Date().toISOString()}`,
-          `[${this.nodeId}] <-`,
-          msg.val
-        );
+        clearTimeout(this.timeoutId);
+        this.timeoutId = setTimeout(() => {
+          console.log(
+            `${new Date().toISOString()}`,
+            `[${this.nodeId}]`,
+            "Election timed out"
+          );
 
-        if (msg.val.term > this.term) {
-          // A newer term has started and is in the election phase
+          this.election();
+        }, randomElectionTimeout());
 
-          // Cancel our election and vote for this candidate
-          this.status = "follower";
-          this.term = msg.val.term;
+        // If we haven't already voted this term, grant vote
+        if (this.votedFor === undefined) {
           this.votedFor = msg.val.candidateId;
-
-          const res: NodeMessage = {
-            action: "Vote",
-            granted: true,
-            term: this.term,
-          };
-          console.log(
-            `${new Date().toISOString()}`,
-            `[${this.nodeId}] -> ${msg.val.candidateId}`,
-            res
+          return new Response(
+            serialize<NodeMessage>({
+              action: "Vote",
+              term: this.term,
+              granted: true,
+            })
           );
-          return new Response(serialize<NodeMessage>(res), { status: 200 });
-        } else if (msg.val.term < this.term) {
-          // An older term's candidate is asking for votes, do not grant
-          const res: NodeMessage = {
-            action: "Vote",
-            granted: false,
-            term: this.term,
-          };
-          console.log(
-            `${new Date().toISOString()}`,
-            `[${this.nodeId}] -> ${msg.val.candidateId}`,
-            res
-          );
-          return new Response(serialize<NodeMessage>(res), { status: 200 });
-        } else {
-          // Another candidate in the same term is asking for votes, vote if we
-          // haven't already voted
-
-          let granted;
-          if (this.votedFor === undefined) {
-            this.votedFor = msg.val.candidateId;
-            granted = true;
-          } else {
-            granted = false;
-          }
-
-          const res: NodeMessage = {
-            action: "Vote",
-            granted,
-            term: this.term,
-          };
-          console.log(
-            `${new Date().toISOString()}`,
-            `[${this.nodeId}] -> ${msg.val.candidateId}`,
-            res
-          );
-          return new Response(serialize<NodeMessage>(res), { status: 200 });
         }
+
+        return new Response(
+          serialize<NodeMessage>({
+            action: "Vote",
+            term: this.term,
+            granted: false,
+          })
+        );
 
       default:
         console.log(
@@ -397,38 +310,72 @@ export class Node implements DurableObject {
     }
   }
 
-  async startElection() {
+  /**
+   * Set this node's status, and announce the new status to all connected clients
+   *
+   * @param status The status to set
+   * @param except All clients except the ones here will be notified
+   */
+  setStatus(status: NodeStatus, except: WebSocket[] = []) {
+    if (this.status === status) {
+      return;
+    }
+
+    this.status = status;
+
+    // In the next tick, notify clients of this status change
+    // setTimeout(() => {
+    this.clients.forEach((client) => {
+      !except.includes(client) &&
+        client.send(
+          serialize<ClientMessage>({
+            action: "SetStatus",
+            clusterId: this.clusterId,
+            nodeId: this.nodeId,
+            status,
+          })
+        );
+    });
+    // }, 0);
+  }
+
+  /**
+   * Marks this node as a candidate and starts an election trying to get itself
+   * elected as the new cluster leader
+   */
+  async election(): Promise<void> {
     // Randomize timeout to prevent split votes
     const electionTimeout = randomElectionTimeout();
 
     console.log(
       `${new Date().toISOString()}`,
       `[${this.nodeId}]`,
-      "Starting new election",
-      `electionTimeout = ${electionTimeout}`
+      "Starting new election"
     );
 
-    this.status = "candidate"; // Make yourself a candidate
     this.term++; // Start a new term
+    this.setStatus("candidate"); // Mark yourself as a candidate
     this.votedFor = this.nodeId; // Vote for yourself
 
     let numVotes = 1; // Count your vote
 
+    // Request votes from all other nodes
     const voteAbortController = new AbortController();
     const votes = await setDeadline(
-      this.broadcast(
+      electionTimeout,
+      broadcast(
+        this.env,
+        this,
         {
           action: "RequestVote",
           term: this.term,
           candidateId: this.nodeId,
         },
-        voteAbortController.signal
-      ),
-      electionTimeout
+        voteAbortController
+      )
     );
 
     if (votes.err) {
-      // Election has timed out
       voteAbortController.abort();
       console.log(
         `${new Date().toISOString()}`,
@@ -436,9 +383,11 @@ export class Node implements DurableObject {
         "Election timed out",
         `term = ${this.term}`
       );
-      return;
+
+      return this.election();
     }
 
+    const minRequiredVotes = Math.floor(this.clusterSize / 2) + 1;
     numVotes += votes.val.reduce((count, vote) => {
       if (
         vote.ok &&
@@ -452,104 +401,179 @@ export class Node implements DurableObject {
       return count;
     }, 0);
 
-    const minRequiredVotes = Math.floor(this.clusterSize / 2) + 1;
-
-    if (numVotes >= minRequiredVotes) {
+    if (numVotes < minRequiredVotes) {
       console.log(
         `${new Date().toISOString()}`,
         `[${this.nodeId}]`,
-        "I am the captain now",
+        "Lost election",
         `term = ${this.term}`
       );
+      return;
+    }
 
-      this.status = "leader";
+    // If you are still a candidate, declare yourself a leader.
+    // We must check for candidacy because some other valid leader might have reached
+    // out while we were waiting for votes
+    if (this.status !== "candidate") {
+      return;
+    }
 
-      // Announce leadership to other nodes immediately
-      void this.broadcast({
+    console.log(
+      `${new Date().toISOString()}`,
+      `[${this.nodeId}]`,
+      "I am the captain now",
+      `term = ${this.term}`
+    );
+
+    this.setStatus("leader");
+
+    // Announce leadership to other nodes immediately
+    void broadcast(this.env, this, {
+      action: "AppendEntries",
+      term: this.term,
+      leader: this.nodeId,
+    });
+
+    // Keep establishing authority
+    this.timeoutId = setInterval(() => {
+      void broadcast(this.env, this, {
         action: "AppendEntries",
         term: this.term,
         leader: this.nodeId,
       });
+    }, HEARTBEAT_INTERVAL);
+  }
+}
 
-      // Keep establishing authority
-      this.electionTimeoutId = setInterval(() => {
-        void this.broadcast({
-          action: "AppendEntries",
-          term: this.term,
-          leader: this.nodeId,
-        });
-      }, electionTimeout);
+export function isDev(env: Pick<Env, "DEVELOPMENT">): boolean {
+  return Boolean(env.DEVELOPMENT);
+}
 
-      // Update clients
-      this.clients.forEach((client) => {
-        client.send(
-          serialize<ClientMessage>({
-            action: "SetState",
-            clusterId: this.clusterId,
-            nodeId: this.nodeId,
-            status: "leader",
-          })
-        );
-      });
-    }
+export function getStub(
+  env: Env,
+  clusterId: string,
+  nodeId: NodeId
+): DurableObjectStub {
+  const doId = env.nodes.idFromName(`node:${clusterId}:${nodeId}`);
+  return env.nodes.get(doId);
+}
+
+// Timeout (in ms) applied to individual RPC requests. If responses don't arrive
+// within this time, the node is considered lost.
+const RPC_TIMEOUT = 2000;
+
+// Timeout (in ms) the leader re-establishes its authority.
+// This must be lower than all possible election timeouts, just so that heartbeats
+// are guaranteed to reach other nodes quicker than their randomized election timeouts
+// time out.
+const HEARTBEAT_INTERVAL = 150;
+
+/**
+ * Returns a random timeout (in ms) to be used as an election timeout
+ */
+function randomElectionTimeout(): number {
+  // Set up a safe lower limit. DO timers aren't super precise, so adding this
+  // additional padding makes sure that there isn't aren't constant re-elections
+  // in cases when the random number is low.
+  const lowerLimit = HEARTBEAT_INTERVAL * 4;
+  return lowerLimit + Math.floor(Math.random() * lowerLimit);
+}
+
+/**
+ * Sets a deadline on a provided promise. If the promise resolves before the deadline,
+ * its result is returned, otherwise an error.
+ * Inspired by tokio::time::timeout
+ *
+ * @param ms Time (in ms) to wait for the Promise to resolve
+ * @param promise The Promise to resolve
+ */
+async function setDeadline<T>(
+  ms: number,
+  promise: Promise<T>
+): Promise<Result<T, void>> {
+  const result = await Promise.race([
+    sleep(ms).then(() => Symbol("sleep")),
+    promise,
+  ]);
+
+  if (typeof result === "symbol") {
+    return Err(undefined);
   }
 
-  broadcast(
-    msg: NodeMessage,
-    signal?: AbortSignal
-  ): Promise<Array<Result<NodeMessage, Error>>> {
-    return Promise.all(
-      NodeIds.filter((id) => id !== this.nodeId).map((id) =>
-        this.send(id, msg, signal)
-      )
-    );
-  }
+  return Ok(result);
+}
 
-  async send(
-    nodeId: NodeId,
-    msg: NodeMessage,
-    signal?: AbortSignal
-  ): Promise<Result<NodeMessage, Error>> {
+/**
+ * Returns a Promise that only resolves after a specified time
+ *
+ * @param ms Time (in ms)
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Broadcasts a message to all Nodes
+ */
+function broadcast(
+  env: Env,
+  from: Node,
+  msg: NodeMessage,
+  abort?: AbortController
+): Promise<Array<Result<NodeMessage, Error>>> {
+  return Promise.all(
+    NodeIds.filter((id) => id !== from.nodeId).map((id) =>
+      send(env, from, id, msg, abort)
+    )
+  );
+}
+
+/**
+ * Sends a message to a specific Node
+ */
+async function send(
+  env: Env,
+  from: Node,
+  to: NodeId,
+  msg: NodeMessage,
+  abort: AbortController = new AbortController()
+): Promise<Result<NodeMessage, Error>> {
+  console.log(`${new Date().toISOString()}`, `[${from.nodeId}] -> ${to}`, msg);
+
+  const node = getStub(env, from.clusterId, to);
+  const response = await setDeadline(
+    RPC_TIMEOUT,
+    node.fetch("http://raft.node", {
+      method: "PUT",
+      body: serialize(msg),
+      headers: { Authorization: env.nodeSecret },
+      signal: abort.signal,
+    })
+  );
+
+  if (response.err) {
+    abort.abort();
     console.log(
       `${new Date().toISOString()}`,
-      `[${this.nodeId}] -> ${nodeId}`,
+      `[${from.nodeId}] -> ${to}`,
+      "Send timed out",
       msg
     );
-
-    const fetchAbortController = new AbortController();
-    const response = await setDeadline(
-      getStub(this.env, this.clusterId, nodeId).fetch("http://raft.node", {
-        method: "PUT",
-        body: serialize(msg),
-        headers: { Authorization: this.env.nodeSecret },
-        signal: signal ?? fetchAbortController.signal,
-      }),
-      RPC_TIMEOUT
-    );
-
-    if (response.err) {
-      fetchAbortController.abort();
-      console.log(
-        `${new Date().toISOString()}`,
-        `[${this.nodeId}] -> ${nodeId}`,
-        "Send timed out",
-        msg
-      );
-      return Err(new Error("Timeout"));
-    }
-
-    if (response.val.status !== 200) {
-      console.log(
-        `${new Date().toISOString()}`,
-        `[${this.nodeId}] -> ${nodeId}`,
-        "Send received non-200",
-        msg,
-        response.val.status
-      );
-      return Err(new Error("Non-200 response"));
-    }
-
-    const data = await response.val.arrayBuffer();
-    return deserialize<NodeMessage>(data);
+    return Err(new Error("Timeout"));
   }
+
+  if (response.val.status !== 200) {
+    console.log(
+      `${new Date().toISOString()}`,
+      `[${from.nodeId}] -> ${to}`,
+      "Send received non-200",
+      msg,
+      response.val.status,
+      await response.val.text()
+    );
+    return Err(new Error("Non-200 response"));
+  }
+
+  const data = await response.val.arrayBuffer();
+  return deserialize<NodeMessage>(data);
 }
