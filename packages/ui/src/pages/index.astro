@@ -1,8 +1,7 @@
 ---
 import clsx from "clsx";
-import { Question } from "phosphor-react";
 import { ClusterId } from "../components/ClusterId";
-import { Icon } from "../components/Icon";
+import { Help } from "../components/Help";
 import { NodeControls } from "../components/NodeControls";
 import WorldMap from "../components/WorldMap.astro";
 ---
@@ -18,7 +17,7 @@ import WorldMap from "../components/WorldMap.astro";
       rel="stylesheet"
       href="https://fonts.bunny.net/css?family=jetbrains-mono:200,400,700"
     />
-    <title>Raft</title>
+    <title>Raft Demo</title>
   </head>
 
   <body
@@ -42,24 +41,17 @@ import WorldMap from "../components/WorldMap.astro";
           <path
             d="M32.9038 95.0962C29.0115 91.2038 31.5923 83.0385 29.6038 78.2577C27.6154 73.4769 20 69.2885 20 64C20 58.7115 27.5308 54.6923 29.6038 49.7423C31.6769 44.7923 29.0115 36.7962 32.9038 32.9038C36.7962 29.0115 44.9615 31.5923 49.7423 29.6038C54.5231 27.6154 58.7115 20 64 20C69.2885 20 73.3077 27.5308 78.2577 29.6038C83.2077 31.6769 91.2038 29.0115 95.0962 32.9038C98.9885 36.7962 96.4077 44.9615 98.3962 49.7423C100.385 54.5231 108 58.7115 108 64C108 69.2885 100.469 73.3077 98.3962 78.2577C96.3231 83.2077 98.9885 91.2038 95.0962 95.0962C91.2038 98.9885 83.0385 96.4077 78.2577 98.3962C73.4769 100.385 69.2885 108 64 108C58.7115 108 54.6923 100.469 49.7423 98.3962C44.7923 96.3231 36.7962 98.9885 32.9038 95.0962Z"
             fill="#FFA800"></path>
-        </svg></a
-      >
+        </svg>
+      </a>
 
-      <Icon client:only label="Help">
-        <Question
-          width={24}
-          height={24}
-          className="text-white transition-opacity opacity-25 hover:opacity-100"
-        />
-      </Icon>
+      <Help client:only />
     </header>
 
     <main class="flex flex-col flex-1 justify-center mx-8">
       <section class="relative">
         <WorldMap />
 
-        <!-- Make sure all nodes rendered here are enabled on the API -->
-
+        <!-- Make sure all nodes rendered here are enabled in the API -->
         <NodeControls client:load id="us1" position={{ top: 31, left: 8 }} />
         <NodeControls client:load id="us2" position={{ top: 30, left: 22 }} />
         <NodeControls client:load id="eu1" position={{ top: 20, left: 45 }} />

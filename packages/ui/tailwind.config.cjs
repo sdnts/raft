@@ -8,6 +8,8 @@ module.exports = {
       },
       colors: {
         black: "#0E0D0C",
+        ui: "#161514",
+        borders: "#262422",
       },
       keyframes: {
         smallSlideUp: {
