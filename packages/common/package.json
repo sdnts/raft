@@ -8,8 +8,8 @@
     "build": "tsc"
   },
   "dependencies": {
-    "msgpackr": "1.8.2",
+    "msgpackr": "1.8.3",
     "ts-results-es": "3.5.0",
-    "typescript": "4.9.4"
+    "typescript": "4.9.5"
   }
 }

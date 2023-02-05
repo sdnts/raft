@@ -7,21 +7,21 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@astrojs/react": "2.0.1",
-    "@astrojs/tailwind": "3.0.0",
+    "@astrojs/react": "2.0.2",
+    "@astrojs/tailwind": "3.0.1",
     "@radix-ui/react-accessible-icon": "1.0.1",
     "@radix-ui/react-dialog": "1.0.2",
-    "@radix-ui/react-hover-card": "1.0.3",
-    "@raft/common": "workspace:^",
-    "@types/react": "18.0.21",
-    "@types/react-dom": "18.0.6",
-    "astro": "2.0.0",
+    "@radix-ui/react-tooltip": "^1.0.3",
+    "@raft/common": "workspace:*",
+    "@types/react": "18.0.27",
+    "@types/react-dom": "18.0.10",
+    "astro": "2.0.10",
     "clsx": "1.2.1",
-    "framer-motion": "9.0.1",
+    "framer-motion": "9.0.2",
     "phosphor-react": "1.4.1",
-    "react": "18.0.0",
-    "react-dom": "18.0.0",
-    "tailwindcss": "3.0.24",
-    "zustand": "4.3.2"
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "tailwindcss": "3.2.6",
+    "zustand": "4.3.3"
   }
 }
