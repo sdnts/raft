@@ -11,15 +11,6 @@ module.exports = {
         ui: "#161514",
         borders: "#262422",
       },
-      keyframes: {
-        smallSlideUp: {
-          "0%": { opacity: 0, transform: "translateY(0.5rem)" },
-          "100%": { opacity: 1, transform: "translateY(0)" },
-        },
-      },
-      animation: {
-        smallSlideUp: "smallSlideUp 0.1s ease-out",
-      },
     },
   },
   plugins: [],

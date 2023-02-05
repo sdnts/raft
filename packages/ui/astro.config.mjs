@@ -4,4 +4,9 @@ import { defineConfig } from "astro/config";
 
 export default defineConfig({
   integrations: [tailwind(), react()],
+  vite: {
+    ssr: {
+      noExternal: ["@radix-ui/*"],
+    },
+  },
 });

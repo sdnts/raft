@@ -5,10 +5,13 @@ import { useNode } from "../hooks/useNode";
 
 type Props = {
   id: NodeId;
-  position: { top: number; left: number };
+  position: { top?: number; bottom?: number; left?: number; right?: number };
 };
 
-export const NodeControls = ({ id, position: { top, left } }: Props) => {
+export const NodeControls = ({
+  id,
+  position: { top, bottom, left, right },
+}: Props) => {
   const { status, setStatus } = useNode(id);
 
   return (
@@ -16,8 +19,10 @@ export const NodeControls = ({ id, position: { top, left } }: Props) => {
       id={id}
       className="absolute"
       style={{
-        top: `${top}%`,
-        left: `${left}%`,
+        top: top ? `${top}%` : undefined,
+        bottom: bottom ? `${bottom}%` : undefined,
+        left: left ? `${left}%` : undefined,
+        right: right ? `${right}%` : undefined,
       }}
       onClick={() => {
         setStatus(status === "offline" ? "follower" : "offline");
