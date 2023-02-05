@@ -5,14 +5,13 @@ import { createContext, PropsWithChildren, useContext, useState } from "react";
 
 const HoverCardContext = createContext({
   open: false,
-  setOpen: (o: boolean) => {},
 });
 
 const Root = (props: Primitive.HoverCardProps) => {
   const [open, setOpen] = useState(false);
 
   return (
-    <HoverCardContext.Provider value={{ open, setOpen }}>
+    <HoverCardContext.Provider value={{ open }}>
       <Primitive.Root
         {...props}
         open={open}
@@ -26,7 +25,7 @@ const Root = (props: Primitive.HoverCardProps) => {
 
 type ContentProps = PropsWithChildren<{}>;
 const Content = ({ children, ...props }: ContentProps) => {
-  const { open, setOpen } = useContext(HoverCardContext);
+  const { open } = useContext(HoverCardContext);
 
   return (
     <AnimatePresence>
@@ -50,7 +49,7 @@ const Content = ({ children, ...props }: ContentProps) => {
               transition={{ duration: 0.1 }}
             >
               {children}
-              <Primitive.Arrow className="fill-borders" />
+              {/* <Arrow className="fill-borders" /> */}
             </motion.div>
           </Primitive.Content>
         </Primitive.Portal>

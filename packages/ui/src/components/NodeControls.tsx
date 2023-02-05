@@ -1,6 +1,8 @@
 import type { NodeId, NodeStatus } from "@raft/common";
 import clsx from "clsx";
+import { motion, useAnimationControls } from "framer-motion";
 import { CrownSimple } from "phosphor-react";
+import { useCluster } from "../hooks/useCluster";
 import { useNode } from "../hooks/useNode";
 
 type Props = {
@@ -12,11 +14,15 @@ export const NodeControls = ({
   id,
   position: { top, bottom, left, right },
 }: Props) => {
+  const off = useCluster((state) => state.off);
+  const clusterSize = useCluster((state) => state.size);
   const { status, setStatus } = useNode(id);
+  const animateControls = useAnimationControls();
 
   return (
-    <button
+    <motion.button
       id={id}
+      animate={animateControls}
       className="absolute"
       style={{
         top: top ? `${top}%` : undefined,
@@ -24,13 +30,28 @@ export const NodeControls = ({
         left: left ? `${left}%` : undefined,
         right: right ? `${right}%` : undefined,
       }}
-      onClick={() => {
-        setStatus(status === "offline" ? "follower" : "offline");
+      onClick={async () => {
+        const wasSet = setStatus(status === "offline" ? "follower" : "offline");
+
+        if (!wasSet) {
+          await animateControls.start({
+            translateX: -3,
+            transition: { duration: 0.03 },
+          });
+          await animateControls.start({
+            translateX: 3,
+            transition: { duration: 0.06 },
+          });
+          await animateControls.start({
+            translateX: 0,
+            transition: { duration: 0.03 },
+          });
+        }
       }}
     >
       <Indicator status={status} />
       <Controls />
-    </button>
+    </motion.button>
   );
 };
 
@@ -67,7 +88,7 @@ const Indicator = ({ status }: IndicatorProps) => {
           "rounded-full opacity-20",
           {
             "bg-red-500": status === "offline",
-            "bg-green-500": status === "follower",
+            "bg-green-500": status === "follower" || status === "candidate",
             "bg-yellow-500": status === "leader",
           }
         )}

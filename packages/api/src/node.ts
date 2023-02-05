@@ -55,7 +55,8 @@ export class Node implements DurableObject {
 
     const authorization = request.headers.get("Authorization");
     if (authorization && authorization === this.env.nodeSecret) {
-      return this.gossip(await request.arrayBuffer());
+      const body = await request.arrayBuffer();
+      return this.state.blockConcurrencyWhile(() => this.gossip(body));
     }
 
     return this.acceptClient();

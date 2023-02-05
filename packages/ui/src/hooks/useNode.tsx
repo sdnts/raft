@@ -8,10 +8,16 @@ const URL = import.meta.env.DEV
   : "wss://api.raft.sdnts.dev";
 
 export function useNode(id: NodeId) {
-  let [status, setStatus] = useState<NodeStatus>();
-  let clusterId = useCluster((state) => state.id);
-  let setClusterId = useCluster((state) => state.setId);
-  let ws = useWebSocket(`${URL}/${id}`, {
+  const clusterId = useCluster((state) => state.id);
+  const setClusterId = useCluster((state) => state.setId);
+  const clusterSize = useCluster((state) => state.size);
+  const offCount = useCluster((state) => state.off);
+  const incrementOff = useCluster((state) => state.incrementOff);
+  const decrementOff = useCluster((state) => state.decrementOff);
+
+  const [status, setStatus] = useState<NodeStatus>();
+
+  const ws = useWebSocket(`${URL}/${id}`, {
     onMessage(msg) {
       if (msg.nodeId !== id) {
         return;
@@ -46,9 +52,33 @@ export function useNode(id: NodeId) {
 
   return {
     status,
-    setStatus(state: NodeStatus) {
-      if (!clusterId) {
-        return;
+    setStatus(s: NodeStatus) {
+      // If cluster is uninitialized, don't allow status changes
+      if (clusterId === undefined) {
+        return false;
+      }
+
+      // If disconnected from cluster, don't allow status changes
+      if (status === undefined) {
+        return false;
+      }
+
+      if (s === "offline") {
+        // If cluster will destabilize by turning node off, don't allow status change
+        if (offCount >= Math.floor(clusterSize / 2)) {
+          // TODO: addToast(
+          //   "Disabling another node will destabilize the cluster",
+          //   "Raft clusters can only tolerate a limited number of nodes being offline. Turn another node on to be able to turn this one off."
+          // );
+          return false;
+        }
+
+        incrementOff();
+      } else if (s === "follower") {
+        decrementOff();
+      } else {
+        // Clients are not allowed to collude in elections
+        return false;
       }
 
       ws.current?.send(
@@ -56,10 +86,12 @@ export function useNode(id: NodeId) {
           action: "SetStatus",
           clusterId,
           nodeId: id,
-          status: state,
+          status: s,
         })
       );
-      setStatus(state);
+      setStatus(s);
+
+      return true;
     },
   };
 }
