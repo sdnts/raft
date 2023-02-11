@@ -1,5 +1,5 @@
-import { NodeIds } from "@raft/common";
 import { create } from "zustand";
+import { NodeIds } from "../rpc";
 
 type State = {
   // Cluster Id

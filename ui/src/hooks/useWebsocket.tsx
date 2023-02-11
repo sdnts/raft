@@ -1,5 +1,5 @@
-import { ClientMessage, deserialize } from "@raft/common";
 import { useEffect, useRef } from "react";
+import { ClientMessage, deserialize } from "../rpc";
 
 type WebSocketHandlers = {
   onOpen?: (e: Event) => void;

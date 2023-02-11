@@ -1,5 +1,5 @@
-import { ClientMessage, NodeId, NodeStatus, serialize } from "@raft/common";
 import { useState } from "react";
+import { ClientMessage, NodeId, NodeStatus, serialize } from "../rpc";
 import { useCluster } from "./useCluster";
 import { useWebSocket } from "./useWebsocket";
 
