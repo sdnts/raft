@@ -1,31 +1,25 @@
-import * as Primitive from "@radix-ui/react-hover-card";
+import * as Primitive from "@radix-ui/react-tooltip";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
 import { createContext, PropsWithChildren, useContext, useState } from "react";
 
-const HoverCardContext = createContext({
+const TooltipContext = createContext({
   open: false,
 });
 
-const Root = (props: Primitive.HoverCardProps) => {
+const Root = (props: Primitive.TooltipProps) => {
   const [open, setOpen] = useState(false);
 
   return (
-    <HoverCardContext.Provider value={{ open }}>
-      <Primitive.Root
-        {...props}
-        open={open}
-        onOpenChange={setOpen}
-        openDelay={400}
-        closeDelay={100}
-      />
-    </HoverCardContext.Provider>
+    <TooltipContext.Provider value={{ open }}>
+      <Primitive.Root {...props} open={open} onOpenChange={setOpen} />
+    </TooltipContext.Provider>
   );
 };
 
 type ContentProps = PropsWithChildren<{}>;
 const Content = ({ children, ...props }: ContentProps) => {
-  const { open } = useContext(HoverCardContext);
+  const { open } = useContext(TooltipContext);
 
   return (
     <AnimatePresence>
@@ -58,7 +52,8 @@ const Content = ({ children, ...props }: ContentProps) => {
   );
 };
 
-export const HoverCard = {
+export const Tooltip = {
+  Provider: Primitive.Provider,
   Root,
   Trigger: Primitive.Trigger,
   Content,
