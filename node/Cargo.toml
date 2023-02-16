@@ -1,7 +1,8 @@
 [package]
-name = "api"
+name = "node"
 version = "0.0.0"
 edition = "2021"
 
 [dependencies]
 anyhow = "1.0.69"
+tungstenite = "0.18.0"
